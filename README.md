@@ -2,7 +2,7 @@
 
 ## Objetivo
 
-Extrair, transformar e carregar dados de produtos de e-commerce, verificar relação de avaliações desses produtos com descontos deles, utilizando Python.
+Construir um pipeline para coletar, tratar e disponibilizar dados de produtos a fim de viabilizar análise da relação entre desconto e avaliação.
 
 ## Pergunta de negócio
 
