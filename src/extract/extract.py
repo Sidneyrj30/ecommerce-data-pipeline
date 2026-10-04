@@ -2,7 +2,7 @@ import requests
 import json
 import logging
 from datetime import datetime
-from config import API_URL, RAW_DATA_PATH
+from src.config import API_URL, RAW_DATA_PATH
 
 logging.basicConfig(
     level=logging.INFO,
