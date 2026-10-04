@@ -1,8 +1,10 @@
 import sqlite3
 from src.config import DATABASE_PATH
 
+
 def get_connection():
     return sqlite3.connect(DATABASE_PATH)
+
 
 def create_products_table(conn):
     cursor = conn.cursor()
@@ -18,9 +20,11 @@ def create_products_table(conn):
         """)
     conn.commit()
 
+
 def upsert_products(conn, products):
     cursor = conn.cursor()
-    cursor.executemany("""
+    cursor.executemany(
+        """
         INSERT INTO products (id, title, category, price, discount_percentage, rating)
         VALUES (:id, :title, :category, :price, :discount_percentage, :rating)
         ON CONFLICT(id) DO UPDATE SET
@@ -29,5 +33,7 @@ def upsert_products(conn, products):
             price = excluded.price,
             discount_percentage = excluded.discount_percentage,
             rating = excluded.rating
-        """, products)
+        """,
+        products,
+    )
     conn.commit()
