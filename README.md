@@ -26,3 +26,7 @@ Se o usuário rodar muitas vezes o arquivo de extração, vai gerar vários arqu
  Concluído — Sprint 0: estrutura inicial do projeto
  
  Concluído — Sprint 1: extração dos dados
+
+ Concluído — Sprint 2: transformação/load dos dados
+
+ Em andamento — Sprint 3: refatoração e testes
