@@ -3,6 +3,7 @@ import sys
 import logging
 import json
 from src.config import RAW_DATA_PATH
+from src.transform.database import create_products_table, get_connection, upsert_products
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,3 +45,7 @@ for item in file_data:
 
 logging.info(f"Produtos válidos: {len(filter_data)} | Produtos descartados: {count}")
 
+with get_connection() as conn:
+    create_products_table(conn)
+    upsert_products(conn, filter_data)
+conn.close()
