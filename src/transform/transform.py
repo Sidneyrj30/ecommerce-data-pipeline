@@ -1,60 +1,72 @@
-import os
-import sys
-import logging
 import json
-from src.config import RAW_DATA_PATH
-from src.transform.database import (
-    create_products_table,
-    get_connection,
-    upsert_products,
-)
+import logging
+from pathlib import Path
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - [%(levelname)s] - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
-files = os.listdir(RAW_DATA_PATH)
-list_files = list(filter(lambda f: f.endswith(".json"), files))
+def read_latest_raw_file(raw_path: str) -> list[dict]:
+    """Lê o arquivo JSON mais recente gerado pela etapa de extração
 
-if not list_files:
-    sys.exit("Nenhum arquivo .json encontrado em data/raw/. Rode a extração primeiro.")
+    Args:
+        raw_path (str): Caminho do diretório contendo os arquivos brutos.
 
-last_file = max(list_files)
-logging.info(f"last_file found: {last_file}")
+    Returns:
+        list[dict]: Conteúdo do arquivo JSON carregado (lista de dicionários).
 
-with open(os.path.join(RAW_DATA_PATH, last_file), "r") as file:
-    file_data = json.load(file)
+    Raises:
+        FileNotFoundError: Se o diretório não existir ou se nenhum arquivo .json for encontrado.
+    """
+    path = Path(raw_path)
 
-logging.info(f"tipo do arquivo: {type(file_data)}")
+    if not path.exists() or not path.is_dir():
+        raise FileNotFoundError(f"O diretório especificado não existe: {raw_path}")
 
-count = 0
-filter_data = []
-for item in file_data:
-    if (
-        item.get("title") is None
-        or item.get("price") is None
-        or item.get("discountPercentage") is None
-        or item.get("rating") is None
-    ):
-        logging.warning(f"Tem valores faltando no produto {item['id']}")
-        count += 1
-        continue
-    filter_data.append(
-        {
-            "id": item["id"],
-            "title": item["title"],
-            "price": item["price"],
-            "discount_percentage": item["discountPercentage"],
-            "rating": item["rating"],
-            "category": item["category"],
-        }
-    )
+    json_files = list(path.glob("*.json"))
 
-logging.info(f"Produtos válidos: {len(filter_data)} | Produtos descartados: {count}")
+    if not json_files:
+        raise FileNotFoundError(
+            f"Nenhum arquivo .json foi encontrado em '{raw_path}'. "
+            "Certifique-se de executar a etapa de extração primeiro."
+        )
 
-with get_connection() as conn:
-    create_products_table(conn)
-    upsert_products(conn, filter_data)
-conn.close()
+    last_file = max(json_files)
+    logging.info(f"last_file found: {last_file}")
+
+    with open(last_file, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def transform_and_validate(file_data: list[dict]) -> tuple[list[dict], int]:
+    """Valida e transforma a lista de produtos extraídos para o formato de inserção no banco
+
+    Filtra itens que possuem campos obrigatórios ausentes ou nulos e converte
+    as chaves do dicionário para padrão snake_case
+
+    Args:
+        file_data (list[dict]): Lista de dicionários contendo os dados dos produtos.
+
+    Returns:
+        tuple[list[dict], int]: uma tupla contendo:
+            - A lista de produtos válidos e formatados
+            - A quantidade de produtos descartados devido a campos ausentes
+    """
+    required_fields = ("id", "title", "price", "discountPercentage", "rating")
+    discarted_count = 0
+    valid_products = []
+    for item in file_data:
+        if any(item.get(field) is None for field in required_fields):
+            product_id = item.get("id", "Desconhecido")
+            logging.warning(f"Campos obrigatórios ausentes no produto ID: {product_id}")
+            discarted_count += 1
+            continue
+        valid_products.append(
+            {
+                "id": item["id"],
+                "title": item["title"],
+                "price": item["price"],
+                "discount_percentage": item["discountPercentage"],
+                "rating": item["rating"],
+                "category": item.get("category"),
+            }
+        )
+
+    return valid_products, discarted_count

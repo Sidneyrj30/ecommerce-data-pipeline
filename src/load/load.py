@@ -1,4 +1,5 @@
 import sqlite3
+
 from src.config import DATABASE_PATH
 
 
@@ -37,3 +38,10 @@ def upsert_products(conn, products):
         products,
     )
     conn.commit()
+
+
+def load_to_db(valid_products: list[dict]):
+    with get_connection() as conn:
+        create_products_table(conn)
+        upsert_products(conn, valid_products)
+    conn.close()
