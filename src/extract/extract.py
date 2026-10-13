@@ -1,13 +1,13 @@
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 
 import requests
 
-from src.config import API_URL, RAW_DATA_PATH
 
-
-def extract_products() -> list[dict]:
+def extract_products(api_url: str) -> list[dict]:
+    """Extrai todos os produtos de uma API paginada de forma iterativa."""
     products = []
     skip = 0
     limit = 30
@@ -15,7 +15,7 @@ def extract_products() -> list[dict]:
 
     while total is None or skip < total:
         try:
-            response = requests.get(f"{API_URL}?limit={limit}&skip={skip}", timeout=5)
+            response = requests.get(f"{api_url}?limit={limit}&skip={skip}", timeout=5)
             response.raise_for_status()
 
             response_sample = response.json()
@@ -42,7 +42,16 @@ def extract_products() -> list[dict]:
     return products
 
 
-def save_products_on_raw_file(products: list[dict]):
+def save_products_on_raw_file(products: list[dict], raw_path: str) -> Path:
+    """Salva a lista de produtos extraídos em um arquivo JSON com carimbo de data/hora."""
+    path = Path(raw_path)
+
+    path.mkdir(parents=True, exist_ok=True)
+
     today = datetime.now().strftime("%Y%m%d_%H%M%S")
-    with open(f"{RAW_DATA_PATH}/{today}.json", "w") as file:
+    file_path = path / f"{today}.json"
+
+    with open(file_path, "w", encoding="utf-8") as file:
         json.dump(products, file)
+
+    return file_path
