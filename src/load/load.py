@@ -1,12 +1,14 @@
 import sqlite3
-from src.config import DATABASE_PATH
+from contextlib import closing
 
 
-def get_connection():
-    return sqlite3.connect(DATABASE_PATH)
+def get_connection(db_path: str) -> sqlite3.Connection:
+    """Abre uma conexão com o banco SQLite."""
+    return sqlite3.connect(db_path)
 
 
 def create_products_table(conn):
+    """Cria a tabela de produtos no banco de dados, caso ela ainda não exista."""
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS products (
@@ -22,6 +24,7 @@ def create_products_table(conn):
 
 
 def upsert_products(conn, products):
+    """Insere ou atualiza (upsert) uma lista de produtos no banco de dados."""
     cursor = conn.cursor()
     cursor.executemany(
         """
@@ -37,3 +40,10 @@ def upsert_products(conn, products):
         products,
     )
     conn.commit()
+
+
+def load_to_db(valid_products: list[dict], db_path: str) -> None:
+    """Orquestra o processo de salvamento dos produtos no banco de dados."""
+    with closing(get_connection(db_path)) as conn:
+        create_products_table(conn)
+        upsert_products(conn, valid_products)

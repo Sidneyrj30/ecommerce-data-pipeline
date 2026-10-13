@@ -1,60 +1,50 @@
-import os
-import sys
-import logging
 import json
-from src.config import RAW_DATA_PATH
-from src.transform.database import (
-    create_products_table,
-    get_connection,
-    upsert_products,
-)
+import logging
+from pathlib import Path
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - [%(levelname)s] - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
-files = os.listdir(RAW_DATA_PATH)
-list_files = list(filter(lambda f: f.endswith(".json"), files))
+def read_latest_raw_file(raw_path: str) -> list[dict]:
+    """Lê o arquivo JSON mais recente gerado pela etapa de extração"""
+    path = Path(raw_path)
 
-if not list_files:
-    sys.exit("Nenhum arquivo .json encontrado em data/raw/. Rode a extração primeiro.")
+    if not path.exists() or not path.is_dir():
+        raise FileNotFoundError(f"O diretório especificado não existe: {raw_path}")
 
-last_file = max(list_files)
-logging.info(f"last_file found: {last_file}")
+    json_files = list(path.glob("*.json"))
 
-with open(os.path.join(RAW_DATA_PATH, last_file), "r") as file:
-    file_data = json.load(file)
+    if not json_files:
+        raise FileNotFoundError(
+            f"Nenhum arquivo .json foi encontrado em '{raw_path}'. "
+            "Certifique-se de executar a etapa de extração primeiro."
+        )
 
-logging.info(f"tipo do arquivo: {type(file_data)}")
+    last_file = max(json_files)
+    logging.info(f"last_file found: {last_file}")
 
-count = 0
-filter_data = []
-for item in file_data:
-    if (
-        item.get("title") is None
-        or item.get("price") is None
-        or item.get("discountPercentage") is None
-        or item.get("rating") is None
-    ):
-        logging.warning(f"Tem valores faltando no produto {item['id']}")
-        count += 1
-        continue
-    filter_data.append(
-        {
-            "id": item["id"],
-            "title": item["title"],
-            "price": item["price"],
-            "discount_percentage": item["discountPercentage"],
-            "rating": item["rating"],
-            "category": item["category"],
-        }
-    )
+    with open(last_file, "r", encoding="utf-8") as file:
+        return json.load(file)
 
-logging.info(f"Produtos válidos: {len(filter_data)} | Produtos descartados: {count}")
 
-with get_connection() as conn:
-    create_products_table(conn)
-    upsert_products(conn, filter_data)
-conn.close()
+def transform_and_validate(file_data: list[dict]) -> tuple[list[dict], int]:
+    """Valida e transforma os produtos; retorna os válidos e a contagem de descartados."""
+    required_fields = ("id", "title", "price", "discountPercentage", "rating")
+    discarded_count = 0
+    valid_products = []
+    for item in file_data:
+        if any(item.get(field) is None for field in required_fields):
+            product_id = item.get("id", "Desconhecido")
+            logging.warning(f"Campos obrigatórios ausentes no produto ID: {product_id}")
+            discarded_count += 1
+            continue
+        valid_products.append(
+            {
+                "id": item["id"],
+                "title": item["title"],
+                "price": item["price"],
+                "discount_percentage": item["discountPercentage"],
+                "rating": item["rating"],
+                "category": item.get("category"),
+            }
+        )
+
+    return valid_products, discarded_count
