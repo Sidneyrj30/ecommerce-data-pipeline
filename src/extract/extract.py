@@ -26,17 +26,8 @@ def extract_products(api_url: str) -> list[dict]:
             if total is None:
                 total = response_sample.get("total", 0)
 
-        except requests.HTTPError as error:
-            logging.error(f"Error status: {error}")
-            raise
-
-        except requests.exceptions.ConnectionError as error:
-            logging.error(f"Erro de conexão: {error}")
-            raise
-
-        except requests.exceptions.Timeout as error:
-            logging.error(f"Timeout ao consultar a API: {error}")
-            raise
+        except requests.exceptions.RequestException as error:
+            raise RuntimeError(f"Erro ao consultar a API (skip={skip})") from error
 
     logging.info(f"Busca finalizada com {len(products)} produtos encontrados")
     return products
